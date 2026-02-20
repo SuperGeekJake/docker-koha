@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  db:
+    image: mariadb:10.11
+    container_name: koha-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-koha_root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-koha}
+      MYSQL_USER: ${MYSQL_USER:-koha}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-koha_pass}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-p$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  memcached:
+    image: memcached:1.6
+    container_name: koha-memcached
+    restart: always
+
+  opensearch:
+    image: opensearchproject/opensearch:2.12.0
+    container_name: koha-opensearch
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch-node1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - DISABLE_SECURITY_PLUGIN=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    restart: always
+
+  koha:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: koha-app
+    ports:
+      - "8080:8080" # Intranet
+      - "80:80"     # OPAC
+    environment:
+      - DB_HOST=db
+      - DB_NAME=${MYSQL_DATABASE:-koha}
+      - DB_USER=${MYSQL_USER:-koha}
+      - DB_PASS=${MYSQL_PASSWORD:-koha_pass}
+      - MEMCACHED_SERVER=memcached:11211
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+    depends_on:
+      db:
+        condition: service_healthy
+      memcached:
+        condition: service_started
+      opensearch:
+        condition: service_started
+    volumes:
+      - koha_data:/var/lib/koha
+    restart: always
+
+volumes:
+  db_data:
+  opensearch_data:
+  koha_data:
