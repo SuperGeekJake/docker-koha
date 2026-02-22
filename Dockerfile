@@ -25,7 +25,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Configure Apache
 RUN a2enmod rewrite cgi proxy_http headers expires ssl \
-    && a2dissite 000-default
+    && a2dissite 000-default \
+    && echo "ServerName localhost" > /etc/apache2/conf-available/servername.conf \
+    && a2enconf servername
 
 # Expose ports
 # OPAC: 80
