@@ -38,6 +38,26 @@ if [ ! -d "/etc/koha/sites/$KOHA_INSTANCE" ]; then
         sed -i "s/<search_engine>.*/<search_engine>elasticsearch<\/search_engine>/" "$CONF_FILE"
         sed -i "s/<elasticsearch_uri>.*/<elasticsearch_uri>http:\/\/$OPENSEARCH_HOST:$OPENSEARCH_PORT<\/elasticsearch_uri>/" "$CONF_FILE"
     fi
+
+    # Fix Apache configuration for the site
+    SITE_CONF="/etc/apache2/sites-available/$KOHA_INSTANCE.conf"
+    if [ -f "$SITE_CONF" ]; then
+        # Remove the disable configuration
+        sed -i '/Include \/etc\/koha\/apache-shared-disable.conf/d' "$SITE_CONF"
+        
+        # Ensure Intranet is on 8080
+        # The first VirtualHost is usually OPAC, the second is Intranet.
+        # But Koha's template might vary. Let's be surgical.
+        
+        # Change the second VirtualHost *:80 to *:8080
+        # We can use a bit of awk to target the second occurrence
+        awk '/<VirtualHost \*:80>/ { count++; if (count == 2) sub(/\*:80/, "*:8080") } { print }' "$SITE_CONF" > "$SITE_CONF.tmp" && mv "$SITE_CONF.tmp" "$SITE_CONF"
+    fi
+
+    # Ensure Apache listens on 8080
+    if ! grep -q "Listen 8080" /etc/apache2/ports.conf; then
+        echo "Listen 8080" >> /etc/apache2/ports.conf
+    fi
     
     # Enable Apache site
     a2ensite "$KOHA_INSTANCE"
