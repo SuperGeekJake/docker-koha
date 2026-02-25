@@ -34,9 +34,15 @@ RUN a2enmod rewrite cgi proxy_http headers expires ssl \
 # Intranet (Staff): 8080
 EXPOSE 80 8080
 
-# Set up entrypoint
+# Set up entrypoints
 COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY worker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+    && chmod +x /usr/local/bin/worker-entrypoint.sh
+
+# Install Koha crontab (activated only by the worker container)
+COPY crontab.koha /etc/cron.d/koha-worker
+RUN chmod 0644 /etc/cron.d/koha-worker
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["apache2ctl", "-D", "FOREGROUND"]

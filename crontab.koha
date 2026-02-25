@@ -1,0 +1,36 @@
+# Koha worker crontab — installed to /etc/cron.d/koha-worker
+# All times are UTC. Adjust to taste.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/usr/share/koha/bin
+KOHA_CONF=/etc/koha/sites/library/koha-conf.xml
+PERL5LIB=/usr/share/koha/lib
+KOHA_INSTANCE=library
+
+# ── Search (OpenSearch / Elasticsearch) ─────────────────────────────────────
+# Re-index all bibs and authorities to keep OpenSearch up to date.
+*/10 * * * *  root  perl /usr/share/koha/bin/search_tools/rebuild_elasticsearch.pl -a -b --instance library >> /var/log/koha/library/es-reindex.log 2>&1
+
+# ── Circulation ──────────────────────────────────────────────────────────────
+# Rebuild holds queue — decides which branch fulfills each hold.
+*/30 * * * *  root  perl /usr/share/koha/bin/cronjobs/holds/build_holds_queue.pl >> /var/log/koha/library/holds_queue.log 2>&1
+
+# ── Notices ──────────────────────────────────────────────────────────────────
+# Queue advance (pre-due) notices.
+0 6 * * *     root  perl /usr/share/koha/bin/cronjobs/advance_notices.pl -c >> /var/log/koha/library/advance_notices.log 2>&1
+
+# Queue overdue notices.
+5 6 * * *     root  perl /usr/share/koha/bin/cronjobs/overdue_notices.pl >> /var/log/koha/library/overdue_notices.log 2>&1
+
+# Queue holds-waiting reminder notices.
+10 6 * * *    root  perl /usr/share/koha/bin/cronjobs/holds/holds_reminder.pl >> /var/log/koha/library/holds_reminder.log 2>&1
+
+# Send all queued email/SMS messages.
+*/15 * * * *  root  perl /usr/share/koha/bin/cronjobs/process_message_queue.pl >> /var/log/koha/library/message_queue.log 2>&1
+
+# ── Fines ────────────────────────────────────────────────────────────────────
+# Calculate and apply overdue fines.
+0 3 * * *     root  perl /usr/share/koha/bin/cronjobs/fines.pl >> /var/log/koha/library/fines.log 2>&1
+
+# ── Cleanup ──────────────────────────────────────────────────────────────────
+# Purge old sessions, logs, deleted records, expired self-registrations, etc.
+0 4 * * *     root  perl /usr/share/koha/bin/cronjobs/cleanup_database.pl --confirm >> /var/log/koha/library/cleanup.log 2>&1

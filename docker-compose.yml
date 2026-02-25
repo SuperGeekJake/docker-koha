@@ -71,6 +71,33 @@ services:
       - koha_data:/var/lib/koha
     restart: always
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: koha-worker
+    entrypoint: ["worker-entrypoint.sh"]
+    environment:
+      - DB_HOST=db
+      - DB_NAME=${MYSQL_DATABASE:-koha}
+      - DB_USER=${MYSQL_USER:-koha}
+      - DB_PASS=${MYSQL_PASSWORD:-koha_pass}
+      - MEMCACHED_SERVER=memcached:11211
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+    depends_on:
+      db:
+        condition: service_healthy
+      memcached:
+        condition: service_started
+      opensearch:
+        condition: service_started
+      koha:
+        condition: service_started
+    volumes:
+      - koha_data:/var/lib/koha
+    restart: always
+
 volumes:
   db_data:
   opensearch_data:
